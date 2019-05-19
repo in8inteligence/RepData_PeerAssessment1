@@ -1,25 +1,169 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "RepData_PeerAssessment1"
+author: "Alan Jenks"
+date: "19/05/2019"
+output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
-## Loading and preprocessing the data
+### Loading and preprocessing the data
+## Code for reading in the dataset and/or processing the data
 
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
-## What is mean total number of steps taken per day?
+```{r download and load, echo=TRUE}
+fileurl <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
+if (!file.exists('./repdata_data_activity.zip')){
+  download.file(fileurl,'./repdata_data_activity.zip', mode = 'wb')
+  unzip('./repdata_data_activity.zip', exdir = getwd())
+}
+activity <- read.csv('activity.csv')
+str(activity)
+```
 
+### What is mean total number of steps taken per day?
 
+## Histogram of the total number of steps taken each day
 
-## What is the average daily activity pattern?
+```{r means steps, echo=TRUE}
+activity_steps <- tapply(activity$steps, activity$date, FUN=sum, na.rm=TRUE)
 
+# Perform histogram of steps per day
+hist(activity_steps, 
+    main="Total Steps per Day", 
+    xlab="Number of Steps per Day", 
+    ylab = "Interval",
+    col="purple",
+    breaks=50)
+```
 
+#Mean and median number of steps taken each day
 
-## Imputing missing values
+```{r mean median, echo=TRUE}
+# Create mean and median of steps per day
+stepsMean <- mean(activity_steps, na.rm=TRUE)
+stepsMedian <- median(activity_steps, na.rm=TRUE)
+# Output mean and median
+stepsMean
+stepsMedian
+```
 
+##Mean total number of steps per day is 9354
 
+###What is the average daily activity pattern?
 
-## Are there differences in activity patterns between weekdays and weekends?
+##Time series plot of the average number of steps taken
+
+```{r average daily, echo=TRUE}
+library(ggplot2)
+
+# Create the means by intervals
+averages <- aggregate(x=list(steps=activity$steps), by=list(interval=activity$interval),FUN=mean, na.rm=TRUE)
+
+ggplot(data=averages, aes(x=interval, y=steps),) +
+  geom_line(color = "red") +
+  ggtitle("Time Series: average number of steps") +
+  xlab("5-minute interval") +
+  ylab("average number of steps taken")
+```
+
+#The 5-minute interval that, on average, contains the maximum number of steps
+
+```{r}
+averages[which.max(averages$steps),]
+```
+
+###Code to describe and show a strategy for imputing missing data
+
+```{r missing values, echo=TRUE}
+# copy of data frame
+activity_missing <- activity
+
+# add column for copleating index
+activity_missing$CI <- "original"
+
+# number of rows to check
+l <- nrow(activity_missing)
+
+# numbers of NAs
+length(which(is.na(activity_missing$steps)))
+```
+
+```{r}
+for (i in 1:l) {
+  if (is.na(activity_missing[i,1])) {
+    activity_missing[i,1] <- averages[averages$interval == activity_missing[i,3],2]
+    activity_missing[i,4] <- "completed"
+  }
+}
+
+# numbers of NAs / completed (control)
+length(which(is.na(activity_missing$steps)))
+```
+
+```{r}
+length(which(activity_missing$CI=="completed"))
+```
+
+```{r}
+# Recreate the sums of steps per date
+activity_steps2 <- tapply(activity_missing$steps, activity_missing$date, FUN=sum, na.rm=TRUE )
+
+# Recreate the mean and median of steps per date
+stepsMean2 <- mean(activity_steps2)
+stepsMedian2 <- median(activity_steps2)
+
+c(stepsMean2, stepsMean)
+```
+
+```{r}
+c(stepsMedian2, stepsMedian)
+```
+
+##Histogram of the total number of steps taken each day after missing values are imputed
+```{r}
+# Plotting 2 plots in a grid
+par(mfrow=c(1,2))
+# Perform histogram of steps per day
+hist(activity_steps, 
+    main = "Total Steps per Day (no-NA)", 
+    xlab = "Number of Steps per Day", 
+    ylab = "Interval",
+    col="blue",
+    breaks=50)
+##Histogram with the orginal dataset
+hist(activity_steps2, 
+    main="Total Steps per Day (Original)", 
+    xlab="Number of Steps per Day", 
+    ylab = "Interval",
+    col="magenta",
+    breaks=50)
+```
+
+##Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends
+
+```{r weekdays weekdends, echo=TRUE}
+#Resetting the panel
+par(mfrow=c(1,1))
+## Summary of data
+summary(activity_steps)
+summary(activity_steps2)
+head(activity_missing)
+activity2<- activity_missing%>%
+        mutate(typeofday= ifelse(weekdays(activity_missing$date)=="Saturday" | weekdays(activity_missing$date)=="Sunday", "Weekend", "Weekday"))
+head(activity2)
+fivemin2<- aggregate(steps ~ interval, data = activity2, FUN = mean, na.rm = TRUE)
+head(fivemin2)
+ggplot(activity2, aes(x =interval , y=steps, color=typeofday)) +
+       geom_line(colour="blue") +
+       labs(title = "Ave Daily Steps (type of day)", x = "Interval", y = "Total Number of Steps") +
+       facet_wrap(~ typeofday, ncol = 1, nrow=2)
+```
+reproduce the results (numbers, plots, etc.) in the report.
+
+message("All code was 'echo=TRUE'.)
